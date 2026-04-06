@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM rust:1.77-slim-bookworm as builder
+FROM rust:1.85-slim-bookworm AS builder
 
 # Install system dependencies for libvips and AWS SDK (OpenSSL)
 RUN apt-get update && apt-get install -y --fix-missing \

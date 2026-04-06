@@ -1,0 +1,11 @@
+target/
+.git/
+.env
+.DS_Store
+*.sh
+README.md
+LICENSE
+.github/
+implementation_plan.md
+tasks.md
+walkthrough.md
