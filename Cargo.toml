@@ -1,0 +1,23 @@
+[package]
+name = "images"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.7.5"
+tokio = { version = "1.38.0", features = ["full"] }
+libvips = "1.7.3"
+serde = { version = "1.0.203", features = ["derive"] }
+reqwest = { version = "0.12.5", features = ["json"] }
+tower-http = { version = "0.5.2", features = ["cors", "fs"] }
+anyhow = "1.0.86"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+aws-config = "1.5.0"
+aws-sdk-s3 = "1.5.0"
+url = "2.5.0"
+hmac = "0.12.1"
+sha2 = "0.10.8"
+hex = "0.4.3"
+dotenvy = "0.15.7"
+serde_json = "1.0.120"
