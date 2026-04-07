@@ -50,6 +50,8 @@ RUN wget https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/v
         -Dheif=enabled && \
     meson compile -C build && \
     meson install -C build && \
+    # Verification: Ensure HEIF support is built-in
+    /vips/bin/vips -l | grep -q heifsave && \
     cd .. && rm -rf vips-${VIPS_VERSION}*
 
 # Configure build environment
@@ -82,6 +84,9 @@ RUN cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim
+
+# Enable backports for libheif plugins
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/backports.list
 
 # Install runtime versions of ALL dependencies used to compile libvips from source.
 # These must match the -dev packages installed in the builder stage.
@@ -119,13 +124,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfftw3-double3 \
     # OpenEXR (HDR)
     libopenexr-3-1-30 \
-    # HEIF/AVIF
+    # HEIF/AVIF (Main library)
     libheif1 \
     libaom3 \
     libde265-0 \
     libx265-199 \
     # Misc
     libexpat1 \
+    && apt-get install -y -t bookworm-backports --no-install-recommends \
+       libheif-plugin-aomenc \
+       libheif-plugin-aomdec \
+       libheif-plugin-x265 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

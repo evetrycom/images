@@ -65,6 +65,7 @@ async fn process_and_respond(
                     ("Content-Type", mime_type), 
                     ("Cache-Control", "public, max-age=31536000, immutable".to_string()),
                     ("ETag", format!("\"{}\"", etag)),
+                    ("Vary", "Origin".to_string()),
                 ],
                 buffer,
             ).into_response()
