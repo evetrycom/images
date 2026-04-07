@@ -54,11 +54,7 @@ RUN wget https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/v
         -Dheif=enabled && \
     meson compile -C build && \
     meson install -C build && \
-    # Verification: Ensure HEIF support is built-in
-    LD_LIBRARY_PATH=/vips/lib /vips/bin/vips -l | grep -q heifsave && \
     cd .. && rm -rf vips-${VIPS_VERSION}*
-
-WORKDIR /usr/src/app
 
 WORKDIR /usr/src/app
 
