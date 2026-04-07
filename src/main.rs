@@ -1,18 +1,17 @@
 mod processor;
+mod vips;
+mod handlers;
 
 use axum::{
-    extract::{Path, Query, State},
     routing::get,
     Router,
-    response::IntoResponse,
-    http::{StatusCode, HeaderMap},
 };
-use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use libvips::VipsApp;
+use crate::vips::VipsApp;
 use aws_sdk_s3::Client as S3Client;
+use serde::Deserialize;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -55,8 +54,8 @@ async fn main() {
         .init();
 
     // 2. Initialize Libvips
-    let _app = VipsApp::new("evetry-images", false).expect("Could not start libvips");
-    libvips::concurrency_set(4);
+    let vips_app = VipsApp::new("evetry-images").expect("Could not start libvips");
+    vips_app.set_concurrency(4);
 
     // 3. Setup S3 Client (R2 Compatible)
     let s3_endpoint = std::env::var("S3_ENDPOINT").expect("S3_ENDPOINT must be set");
@@ -74,7 +73,7 @@ async fn main() {
         "R2",
     );
 
-    let s3_config = aws_config::from_env()
+    let s3_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(aws_sdk_s3::config::Region::new("auto"))
         .credentials_provider(credentials)
         .endpoint_url(s3_endpoint)
@@ -92,9 +91,9 @@ async fn main() {
 
     // 4. Setup router
     let app = Router::new()
-        .route("/health", get(health_check))
-        .route("/url/*remote_url", get(handle_external_image))
-        .route("/*path", get(handle_s3_image))
+        .route("/health", get(handlers::health_check))
+        .route("/url/*remote_url", get(handlers::handle_external_image))
+        .route("/*path", get(handlers::handle_s3_image))
         .with_state(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
@@ -104,71 +103,4 @@ async fn main() {
     
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn health_check() -> &'static str {
-    "Evetry Images is running OK"
-}
-
-// Handler for external images: /url/https://example.com/img.png?tr=...
-async fn handle_external_image(
-    State(state): State<Arc<AppState>>,
-    Path(remote_url): Path<String>,
-    Query(params): Query<QueryParams>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
-    if !state.allow_external {
-        return (StatusCode::FORBIDDEN, "External URLs are disabled").into_response();
-    }
-
-    tracing::info!("Proxying external image: {}", remote_url);
-    
-    // Process image
-    process_and_respond(state, processor::ImageSource::Url(remote_url), params, headers).await
-}
-
-// Handler for S3 images: /photo.jpg?tr=...
-async fn handle_s3_image(
-    State(state): State<Arc<AppState>>,
-    Path(path): Path<String>,
-    Query(params): Query<QueryParams>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
-    tracing::info!("Fetching image from S3: {}", path);
-    
-    process_and_respond(state, processor::ImageSource::S3(path), params, headers).await
-}
-
-async fn process_and_respond(
-    state: Arc<AppState>,
-    source: processor::ImageSource,
-    params: QueryParams,
-    headers: HeaderMap,
-) -> impl IntoResponse {
-    // Determine target format based on Accept header
-    let accept = headers.get("accept").and_then(|v| v.to_str().ok()).unwrap_or("");
-    
-    match processor::process_image(&state, source, params, accept).await {
-        Ok(processor::ProcessedResult::Image(buffer, mime_type)) => {
-            (
-                StatusCode::OK,
-                [
-                    ("Content-Type", mime_type), 
-                    ("Cache-Control", "public, max-age=31536000, immutable".to_string())
-                ],
-                buffer,
-            ).into_response()
-        }
-        Ok(processor::ProcessedResult::Json(json_val)) => {
-            (
-                StatusCode::OK,
-                [("Content-Type", "application/json".to_string())],
-                serde_json::to_string_pretty(&json_val).unwrap(),
-            ).into_response()
-        }
-        Err(e) => {
-            tracing::error!("Error processing image: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {}", e)).into_response()
-        }
-    }
 }
