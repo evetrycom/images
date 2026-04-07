@@ -71,7 +71,7 @@ extern "C" {
     pub fn vips_image_get_bands(image: *const VipsImage) -> c_int;
 
     /// Reads an integer metadata property (e.g. `"n-pages"`).
-    pub fn vips_image_get_as_int(
+    pub fn vips_image_get_int(
         image: *const VipsImage,
         name: *const c_char,
         out: *mut c_int,
@@ -85,7 +85,7 @@ extern "C" {
     ) -> c_int;
 
     /// Reads a double metadata property (e.g. `"xres"`).
-    pub fn vips_image_get_as_double(
+    pub fn vips_image_get_double(
         image: *const VipsImage,
         name: *const c_char,
         out: *mut c_double,

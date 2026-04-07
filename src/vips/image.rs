@@ -48,7 +48,7 @@ impl VipsImage {
         let name = CString::new("n-pages").unwrap();
         let mut val: std::ffi::c_int = 1;
         unsafe {
-            ffi::vips_image_get_as_int(self.ptr, name.as_ptr(), &mut val);
+            ffi::vips_image_get_int(self.ptr, name.as_ptr(), &mut val);
         }
         val.max(1)
     }
