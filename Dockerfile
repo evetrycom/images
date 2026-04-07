@@ -33,6 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblcms2-dev \
     libimagequant-dev \
     libcgif-dev \
+    libheif-dev \
     && pip3 install meson --break-system-packages \
     && rm -rf /var/lib/apt/lists/*
 
@@ -113,6 +114,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfftw3-double3 \
     # OpenEXR (HDR)
     libopenexr-3-1-30 \
+    # HEIF/AVIF
+    libheif1 \
     # Misc
     libexpat1 \
     && rm -rf /var/lib/apt/lists/*

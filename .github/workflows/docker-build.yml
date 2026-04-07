@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker image tag (e.g. 1.0.0)'
+        required: true
+        default: 'latest'
 
 env:
   REGISTRY: ghcr.io
@@ -41,6 +46,10 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
+            # Manual dispatch: tag with input + latest
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+            # Full SHA for visibility
             type=sha,format=long
 
       - name: Build and push Docker image

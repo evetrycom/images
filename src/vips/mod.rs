@@ -16,7 +16,7 @@ mod ops;
 pub use enums::{HeifCompression, Interesting};
 pub use image::{VipsApp, VipsImage};
 pub use ops::{
-    arrayjoin, bandjoin2, composite2, extract_band, gaussblur, heifsave_buffer, image_from_buffer,
-    image_new_from_image1, jpegsave_buffer, jxlsave_buffer, pngsave_buffer, resize, sharpen,
-    smartcrop, webpsave_buffer, gifsave_buffer,
+    arrayjoin, bandjoin2, composite2, extract_area, extract_band, gaussblur, gifsave_buffer,
+    heifsave_buffer, image_from_buffer, image_new_from_image1, jpegsave_buffer, jxlsave_buffer,
+    pngsave_buffer, resize, set_page_height, sharpen, smartcrop, webpsave_buffer,
 };

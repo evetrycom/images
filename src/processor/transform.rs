@@ -21,8 +21,24 @@ pub fn apply_resize(img: VipsImage, params: &QueryParams) -> Result<VipsImage> {
         };
 
         if let Some(interest) = interesting {
-            return vips::smartcrop(&img, target_w, target_h, interest)
-                .map_err(|e| anyhow!("Smartcrop failed: {}", e));
+            if n_pages > 1 {
+                // For animated images, we must smartcrop each frame individually
+                let mut frames = Vec::with_capacity(n_pages as usize);
+                for i in 0..n_pages {
+                    let frame = vips::extract_area(&img, 0, i * current_h, current_w, current_h)
+                        .map_err(|e| anyhow!("Failed to extract frame {}: {}", i, e))?;
+                    let cropped = vips::smartcrop(&frame, target_w, target_h, interest)
+                        .map_err(|e| anyhow!("Smartcrop failed on frame {}: {}", i, e))?;
+                    frames.push(cropped);
+                }
+                let joined = vips::arrayjoin(&mut frames)
+                    .map_err(|e| anyhow!("Failed to join frames: {}", e))?;
+                vips::set_page_height(&joined, target_h);
+                return Ok(joined);
+            } else {
+                return vips::smartcrop(&img, target_w, target_h, interest)
+                    .map_err(|e| anyhow!("Smartcrop failed: {}", e));
+            }
         }
     }
 
@@ -36,7 +52,15 @@ pub fn apply_resize(img: VipsImage, params: &QueryParams) -> Result<VipsImage> {
         scale = 1.0;
     }
 
-    vips::resize(&img, scale).map_err(|e| anyhow!("Resize failed: {}", e))
+    let resized = vips::resize(&img, scale).map_err(|e| anyhow!("Resize failed: {}", e))?;
+    
+    // For animated images, we must update the page-height metadata
+    if n_pages > 1 {
+        let new_page_height = (current_h as f64 * scale).round() as i32;
+        vips::set_page_height(&resized, new_page_height);
+    }
+    
+    Ok(resized)
 }
 
 /// Applies sharpen and/or blur filters when present in params.

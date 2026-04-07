@@ -221,6 +221,33 @@ pub fn arrayjoin(images: &mut [VipsImage]) -> Result<VipsImage, String> {
     }
 }
 
+/// Extracts a rectangular region from an image (used to slice individual animation frames).
+pub fn extract_area(img: &VipsImage, left: i32, top: i32, width: i32, height: i32) -> Result<VipsImage, String> {
+    let mut out: *mut ffi::VipsImage = ptr::null_mut();
+    let ret = unsafe {
+        ffi::vips_extract_area(
+            img.as_ptr(),
+            &mut out,
+            left,
+            top,
+            width,
+            height,
+            ptr::null::<std::ffi::c_char>(),
+        )
+    };
+    if ret != 0 {
+        Err(take_error())
+    } else {
+        VipsImage::from_raw(out).ok_or_else(take_error)
+    }
+}
+
+/// Sets the `page-height` metadata on a multi-frame image so encoders treat it as animated.
+pub fn set_page_height(img: &VipsImage, height: i32) {
+    let name = std::ffi::CString::new("page-height").unwrap();
+    unsafe { ffi::vips_image_set_int(img.as_ptr(), name.as_ptr(), height) };
+}
+
 // ── Save to buffer ────────────────────────────────────────────────────────────
 
 /// Encodes the image to a JPEG buffer at the given quality (1–100).

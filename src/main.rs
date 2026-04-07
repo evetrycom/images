@@ -8,10 +8,11 @@ use axum::{
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use crate::vips::VipsApp;
 use aws_sdk_s3::Client as S3Client;
 use serde::Deserialize;
+use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -49,16 +50,42 @@ pub struct QueryParams {
 async fn main() {
     // 1. Initialize environment and logging
     dotenvy::dotenv().ok();
+    
+    // Configurable logging (defaults to info)
     tracing_subscriber::registry()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| "images=info,tower_http=info".into()))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // 2. Initialize Libvips
+    // 2. Initialize Libvips with environment-driven tuning
     let vips_app = VipsApp::new("evetry-images").expect("Could not start libvips");
     
-    // Performance tuning:
-    vips_app.set_concurrency(num_cpus::get() as i32);
-    vips_app.set_cache_max(100); // Cache up to 100 operations
+    // Read performance/memory limits from env
+    let concurrency = std::env::var("VIPS_CONCURRENCY")
+        .map(|s| s.parse().unwrap_or(num_cpus::get() as i32))
+        .unwrap_or(num_cpus::get() as i32);
+    
+    let cache_ops = std::env::var("VIPS_MAX_CACHE_OPS")
+        .map(|s| s.parse().unwrap_or(10))
+        .unwrap_or(10);
+        
+    let cache_mem = std::env::var("VIPS_MAX_CACHE_MEM")
+        .map(|s| parse_size_bytes(&s).unwrap_or(64 * 1024 * 1024))
+        .unwrap_or(64 * 1024 * 1024); // Default 64MB
+        
+    let cache_files = std::env::var("VIPS_MAX_CACHE_FILES")
+        .map(|s| s.parse().unwrap_or(20))
+        .unwrap_or(20);
+
+    vips_app.set_concurrency(concurrency);
+    vips_app.set_cache_max(cache_ops);
+    vips_app.set_cache_max_mem(cache_mem);
+    vips_app.set_cache_max_files(cache_files);
+    
+    tracing::info!(
+        "VIPS initialized: concurrency={}, cache_ops={}, cache_mem={}MB, cache_files={}",
+        concurrency, cache_ops, cache_mem / (1024 * 1024), cache_files
+    );
 
     // 3. Setup S3 Client (R2 Compatible)
     let s3_endpoint = std::env::var("S3_ENDPOINT").expect("S3_ENDPOINT must be set");
@@ -92,11 +119,33 @@ async fn main() {
         secret: app_secret,
     });
 
-    // 4. Setup router
+    // 4. Setup CORS
+    let allowed_origins = std::env::var("ALLOWED_ORIGINS").ok();
+    let cors = if let Some(origins) = allowed_origins {
+        if origins == "*" {
+            CorsLayer::new().allow_origin(Any)
+        } else {
+            let list = origins
+                .split(',')
+                .map(|o| o.parse().expect("Invalid origin"))
+                .collect::<Vec<_>>();
+            CorsLayer::new().allow_origin(list)
+        }
+    } else {
+        CorsLayer::new().allow_origin(Any)
+    };
+
+    let cors = cors
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    // 5. Setup router
     let app = Router::new()
         .route("/health", get(handlers::health_check))
         .route("/url/{*remote_url}", get(handlers::handle_external_image))
-        .route("/{*path}", get(handlers::handle_s3_image))
+        // New prefixed route for S3 images to mitigate bot noise
+        .route("/assets/{*path}", get(handlers::handle_s3_image))
+        .layer(cors)
         .with_state(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
@@ -106,4 +155,16 @@ async fn main() {
     
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+/// Helper to parse sizes like "64MB", "1GB" or just bytes.
+fn parse_size_bytes(s: &str) -> Option<usize> {
+    let s = s.trim().to_uppercase();
+    if s.ends_with("MB") {
+        s.strip_suffix("MB")?.parse::<usize>().ok().map(|n| n * 1024 * 1024)
+    } else if s.ends_with("GB") {
+        s.strip_suffix("GB")?.parse::<usize>().ok().map(|n| n * 1024 * 1024 * 1024)
+    } else {
+        s.parse::<usize>().ok()
+    }
 }

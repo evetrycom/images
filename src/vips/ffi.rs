@@ -49,6 +49,10 @@ extern "C" {
     pub fn vips_concurrency_set(concurrency: c_int);
     /// Sets the maximum number of operations to keep in the vips operation cache.
     pub fn vips_cache_set_max(max: c_int);
+    /// Sets the maximum amount of memory (in bytes) used by the vips operation cache.
+    pub fn vips_cache_set_max_mem(max_mem: gsize);
+    /// Sets the maximum number of open files kept in the vips operation cache.
+    pub fn vips_cache_set_max_files(max_files: c_int);
     /// Decrements a GObject reference count (used to free VipsImage).
     pub fn g_object_unref(obj: *mut c_void);
 
@@ -76,6 +80,13 @@ extern "C" {
         name: *const c_char,
         out: *mut c_int,
     ) -> c_int;
+
+    /// Writes an integer metadata property (e.g. `"page-height"`).
+    pub fn vips_image_set_int(
+        image: *mut VipsImage,
+        name: *const c_char,
+        value: c_int,
+    );
     
     /// Reads a string metadata property (e.g. `"vips-loader"`).
     pub fn vips_image_get_string(
@@ -156,6 +167,17 @@ extern "C" {
     pub fn vips_smartcrop(
         in_: *mut VipsImage,
         out: *mut *mut VipsImage,
+        width: c_int,
+        height: c_int,
+        ...
+    ) -> c_int;
+
+    /// Extracts a rectangular region from an image.
+    pub fn vips_extract_area(
+        in_: *mut VipsImage,
+        out: *mut *mut VipsImage,
+        left: c_int,
+        top: c_int,
         width: c_int,
         height: c_int,
         ...

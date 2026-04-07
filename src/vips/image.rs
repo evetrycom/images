@@ -139,8 +139,18 @@ impl VipsApp {
         unsafe { ffi::vips_concurrency_set(n) }
     }
 
-    /// Sets the vips operation cache size.
+    /// Sets the vips operation cache size (number of operations).
     pub fn set_cache_max(&self, n: i32) {
         unsafe { ffi::vips_cache_set_max(n) }
+    }
+
+    /// Sets the maximum cumulative memory (in bytes) used by the operation cache.
+    pub fn set_cache_max_mem(&self, n: usize) {
+        unsafe { ffi::vips_cache_set_max_mem(n) }
+    }
+
+    /// Sets the maximum number of open files kept in the operation cache.
+    pub fn set_cache_max_files(&self, n: i32) {
+        unsafe { ffi::vips_cache_set_max_files(n) }
     }
 }
