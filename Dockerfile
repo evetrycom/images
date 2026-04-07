@@ -40,6 +40,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && pip3 install meson --break-system-packages \
     && rm -rf /var/lib/apt/lists/*
 
+# Configure build environment
+ENV PKG_CONFIG_PATH=/vips/lib/pkgconfig
+ENV LD_LIBRARY_PATH=/vips/lib
+
 # Build libvips from source
 ENV VIPS_VERSION=8.18.2
 RUN wget https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.xz && \
@@ -51,12 +55,10 @@ RUN wget https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/v
     meson compile -C build && \
     meson install -C build && \
     # Verification: Ensure HEIF support is built-in
-    /vips/bin/vips -l | grep -q heifsave && \
+    LD_LIBRARY_PATH=/vips/lib /vips/bin/vips -l | grep -q heifsave && \
     cd .. && rm -rf vips-${VIPS_VERSION}*
 
-# Configure build environment
-ENV PKG_CONFIG_PATH=/vips/lib/pkgconfig
-ENV LD_LIBRARY_PATH=/vips/lib
+WORKDIR /usr/src/app
 
 WORKDIR /usr/src/app
 
