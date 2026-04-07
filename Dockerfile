@@ -77,28 +77,39 @@ RUN cargo build --release
 # Stage 2: Runtime
 FROM debian:bookworm-slim
 
-# Install minimal runtime libraries for libvips and the app
+# Install only what the binary actually needs (verified via ldd)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Core system
     libssl3 \
     ca-certificates \
+    # GLib / GObject (used directly by vips FFI)
     libglib2.0-0 \
-    libwebp7 \
+    # Image formats
     libjpeg62-turbo \
-    libtiff6 \
-    libexif12 \
-    libgsf-1-114 \
-    liborc-0.4-0 \
-    liblcms2-2 \
-    libimagequant0 \
-    libcgif0 \
-    libexpat1 \
-    libfftw3-double3 \
     libpng16-16 \
+    libtiff6 \
+    libwebp7 \
+    libwebpdemux2 \
+    libwebpmux3 \
     libopenjp2-7 \
+    libcgif0 \
+    libexif12 \
+    libcfitsio10 \
+    libimagequant0 \
+    # PDF / SVG / metadata
     libpoppler-glib8 \
     librsvg2-2 \
+    libgsf-1-114 \
+    # Text rendering (pango)
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
+    # Color management
+    liblcms2-2 \
+    # FFT
+    libfftw3-double3 \
+    # Misc compression/util (transitive deps of vips)
+    libexpat1 \
+    liborc-0.4-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
