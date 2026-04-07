@@ -54,12 +54,18 @@ WORKDIR /usr/src/app
 
 # --- OPTIMASI: Caching dependencies ---
 COPY Cargo.toml Cargo.lock ./
-# Create dummy build script and main.rs to cache dependencies
-RUN mkdir src && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "fn main() {}" > build.rs
+# Strip the build script declaration so the dummy step doesn't run a fake build.rs.
+# This avoids caching empty link directives that would shadow the real build.rs output.
+RUN sed -i '/^build = /d' Cargo.toml && \
+    mkdir src && \
+    echo "fn main() {}" > src/main.rs
 RUN cargo build --release
-RUN rm -rf src/ build.rs
+# Delete images-specific fingerprint & build cache so the real build.rs is forced to re-run.
+RUN rm -rf src/ \
+    target/release/build/images-* \
+    target/release/.fingerprint/images-* \
+    target/release/deps/images-*
+# (COPY . . will overwrite Cargo.toml with the real one containing build = "build.rs")
 # --------------------------------------
 
 # Copy original source
