@@ -49,6 +49,7 @@ RUN wget https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/v
 # Configure build environment
 ENV PKG_CONFIG_PATH=/vips/lib/pkgconfig
 ENV LD_LIBRARY_PATH=/vips/lib
+ENV LIBRARY_PATH=/vips/lib
 
 WORKDIR /usr/src/app
 
