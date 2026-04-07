@@ -1,7 +1,7 @@
 # Stage 1: Build
-FROM rust:1.94-slim-bookworm AS builder
+FROM rust:1-slim-bookworm AS builder
 
-# Install system dependencies for libvips and AWS SDK (OpenSSL)
+# Install build dependencies
 RUN apt-get update && apt-get install -y --fix-missing \
     pkg-config \
     libvips-dev \
@@ -10,24 +10,41 @@ RUN apt-get update && apt-get install -y --fix-missing \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
+
+# --- OPTIMASI: Caching dependencies ---
+# Copy hanya file manifest untuk build dependensi dulu
+COPY Cargo.toml Cargo.lock ./
+# Buat file dummy agar cargo bisa build dependensi
+RUN mkdir src && echo "fn main() {}" > src/main.rs && touch build.rs
+RUN cargo build --release
+RUN rm -rf src/
+# --------------------------------------
+
+# Copy kode sumber asli
 COPY . .
 
-# Build in release mode
+# Build ulang binary asli
 RUN cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim
 
-# Install only the runtime libvips library
+# Install runtime libraries
 RUN apt-get update && apt-get install -y --fix-missing \
     libvips42 \
+    librsvg2-2 \
+    libssl3 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /usr/src/app/target/release/images /app/evetry-images
 
-# Port for Axum
+# Port default Axum
 EXPOSE 3000
+
+# Opsional: Tambahkan ENV default
+ENV PORT=3000
+ENV RUST_LOG=info
 
 CMD ["./evetry-images"]

@@ -53,6 +53,18 @@ impl VipsImage {
         val.max(1)
     }
 
+    /// Returns the name of the loader that created this image (e.g. "jpegload").
+    pub fn loader(&self) -> String {
+        let name = CString::new("vips-loader").unwrap();
+        let mut ptr: *const std::ffi::c_char = std::ptr::null();
+        unsafe {
+            if ffi::vips_image_get_string(self.ptr, name.as_ptr(), &mut ptr) == 0 && !ptr.is_null() {
+                return std::ffi::CStr::from_ptr(ptr).to_string_lossy().into_owned();
+            }
+        }
+        "unknown".to_string()
+    }
+
     /// Human-readable name of the image's colorspace interpretation.
     pub fn interpretation(&self) -> String {
         let v = unsafe { ffi::vips_image_get_interpretation(self.ptr) };
@@ -125,5 +137,10 @@ impl VipsApp {
     /// Sets the number of concurrent vips worker threads.
     pub fn set_concurrency(&self, n: i32) {
         unsafe { ffi::vips_concurrency_set(n) }
+    }
+
+    /// Sets the vips operation cache size.
+    pub fn set_cache_max(&self, n: i32) {
+        unsafe { ffi::vips_cache_set_max(n) }
     }
 }

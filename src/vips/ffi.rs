@@ -47,6 +47,8 @@ extern "C" {
     pub fn vips_init(argv0: *const c_char) -> c_int;
     /// Sets the number of concurrent worker threads.
     pub fn vips_concurrency_set(concurrency: c_int);
+    /// Sets the maximum number of operations to keep in the vips operation cache.
+    pub fn vips_cache_set_max(max: c_int);
     /// Decrements a GObject reference count (used to free VipsImage).
     pub fn g_object_unref(obj: *mut c_void);
 
@@ -73,6 +75,20 @@ extern "C" {
         image: *const VipsImage,
         name: *const c_char,
         out: *mut c_int,
+    ) -> c_int;
+    
+    /// Reads a string metadata property (e.g. `"vips-loader"`).
+    pub fn vips_image_get_string(
+        image: *const VipsImage,
+        name: *const c_char,
+        out: *mut *const c_char,
+    ) -> c_int;
+
+    /// Reads a double metadata property (e.g. `"xres"`).
+    pub fn vips_image_get_double(
+        image: *const VipsImage,
+        name: *const c_char,
+        out: *mut c_double,
     ) -> c_int;
 
     /// Returns the VipsInterpretation enum value for the image's colorspace.

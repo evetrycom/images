@@ -42,15 +42,23 @@ pub fn encode(img: &VipsImage, format: &str, quality: i32) -> Result<(Vec<u8>, S
     Ok((buf, mime.to_string()))
 }
 
-/// Picks the output format from the explicit `output` param or the `Accept` header.
-pub fn negotiate_format<'a>(output_param: Option<&'a str>, accept_header: &'a str) -> &'a str {
+/// Picks the output format from the explicit `output` param, the `Accept` header,
+/// or falls back to the original image format.
+pub fn negotiate_format<'a>(
+    output_param: Option<&'a str>,
+    accept_header: &'a str,
+    original_format: &'a str,
+) -> &'a str {
     output_param.unwrap_or_else(|| {
         if accept_header.contains("image/avif") {
             "avif"
         } else if accept_header.contains("image/webp") {
             "webp"
+        } else if accept_header.contains("image/jxl") {
+            "jxl"
         } else {
-            "jpeg"
+            // Default to original format instead of hardcoded jpeg.
+            original_format
         }
     })
 }

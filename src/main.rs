@@ -55,7 +55,10 @@ async fn main() {
 
     // 2. Initialize Libvips
     let vips_app = VipsApp::new("evetry-images").expect("Could not start libvips");
-    vips_app.set_concurrency(4);
+    
+    // Performance tuning:
+    vips_app.set_concurrency(num_cpus::get() as i32);
+    vips_app.set_cache_max(100); // Cache up to 100 operations
 
     // 3. Setup S3 Client (R2 Compatible)
     let s3_endpoint = std::env::var("S3_ENDPOINT").expect("S3_ENDPOINT must be set");
@@ -92,8 +95,8 @@ async fn main() {
     // 4. Setup router
     let app = Router::new()
         .route("/health", get(handlers::health_check))
-        .route("/url/*remote_url", get(handlers::handle_external_image))
-        .route("/*path", get(handlers::handle_s3_image))
+        .route("/url/{*remote_url}", get(handlers::handle_external_image))
+        .route("/{*path}", get(handlers::handle_s3_image))
         .with_state(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
