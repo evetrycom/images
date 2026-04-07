@@ -15,7 +15,7 @@ WORKDIR /usr/src/app
 # Copy hanya file manifest untuk build dependensi dulu
 COPY Cargo.toml Cargo.lock ./
 # Buat file dummy agar cargo bisa build dependensi
-RUN mkdir src && echo "fn main() {}" > src/main.rs && touch build.rs
+RUN mkdir src && echo "fn main() {}" > src/main.rs && echo "fn main() {}" > build.rs
 RUN cargo build --release
 RUN rm -rf src/
 # --------------------------------------
