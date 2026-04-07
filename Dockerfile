@@ -2,6 +2,7 @@
 FROM rust:1-slim-bookworm AS builder
 
 # Install build tools and dependencies for libvips
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/backports.list
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     curl \
@@ -37,6 +38,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libaom-dev \
     libde265-dev \
     libx265-dev \
+    && apt-get install -y -t bookworm-backports --no-install-recommends \
+       libheif-plugin-aomenc \
+       libheif-plugin-aomdec \
+       libheif-plugin-x265 \
     && pip3 install meson --break-system-packages \
     && rm -rf /var/lib/apt/lists/*
 
@@ -54,6 +59,8 @@ RUN wget https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/v
         -Dheif=enabled && \
     meson compile -C build && \
     meson install -C build && \
+    # VERIFICATION: Ensure heifsave was actually compiled in
+    LD_LIBRARY_PATH=/vips/lib /vips/bin/vips -l | grep -q heifsave && \
     cd .. && rm -rf vips-${VIPS_VERSION}*
 
 WORKDIR /usr/src/app
