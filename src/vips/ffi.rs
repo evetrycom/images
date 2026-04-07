@@ -12,6 +12,7 @@ use std::ffi::{c_char, c_double, c_int, c_void};
 pub type VipsImage = c_void;
 pub type gboolean = c_int;
 pub type gsize = usize;
+pub type GType = usize;
 
 // ── Enum constants ────────────────────────────────────────────────────────────
 
@@ -104,6 +105,9 @@ extern "C" {
 
     /// Returns the VipsInterpretation enum value for the image's colorspace.
     pub fn vips_image_get_interpretation(image: *const VipsImage) -> c_int;
+
+    /// Returns the GType of a metadata property, or 0 if it doesn't exist.
+    pub fn vips_image_get_typeof(image: *const VipsImage, name: *const c_char) -> GType;
 
     // Save to buffer
     /// Encodes to JPEG buffer. Varargs: `"Q", quality, NULL`.

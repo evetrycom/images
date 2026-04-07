@@ -46,11 +46,16 @@ impl VipsImage {
     /// Number of pages / animation frames. Returns at least 1.
     pub fn n_pages(&self) -> i32 {
         let name = CString::new("n-pages").unwrap();
-        let mut val: std::ffi::c_int = 1;
         unsafe {
-            ffi::vips_image_get_int(self.ptr, name.as_ptr(), &mut val);
+            // Check if the property exists first to avoid polluting the vips error buffer.
+            if ffi::vips_image_get_typeof(self.ptr, name.as_ptr()) != 0 {
+                let mut val: std::ffi::c_int = 1;
+                if ffi::vips_image_get_int(self.ptr, name.as_ptr(), &mut val) == 0 {
+                    return val.max(1);
+                }
+            }
         }
-        val.max(1)
+        1
     }
 
     /// Returns the name of the loader that created this image (e.g. "jpegload").

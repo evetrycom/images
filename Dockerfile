@@ -34,6 +34,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libimagequant-dev \
     libcgif-dev \
     libheif-dev \
+    libaom-dev \
+    libde265-dev \
+    libx265-dev \
     && pip3 install meson --break-system-packages \
     && rm -rf /var/lib/apt/lists/*
 
@@ -42,7 +45,9 @@ ENV VIPS_VERSION=8.18.2
 RUN wget https://github.com/libvips/libvips/releases/download/v${VIPS_VERSION}/vips-${VIPS_VERSION}.tar.xz && \
     tar xf vips-${VIPS_VERSION}.tar.xz && \
     cd vips-${VIPS_VERSION} && \
-    meson setup build --prefix=/vips --libdir=lib --buildtype=release -Dintrospection=disabled && \
+    meson setup build --prefix=/vips --libdir=lib --buildtype=release \
+        -Dintrospection=disabled \
+        -Dheif=enabled && \
     meson compile -C build && \
     meson install -C build && \
     cd .. && rm -rf vips-${VIPS_VERSION}*
@@ -116,6 +121,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopenexr-3-1-30 \
     # HEIF/AVIF
     libheif1 \
+    libaom3 \
+    libde265-0 \
+    libx265-199 \
     # Misc
     libexpat1 \
     && rm -rf /var/lib/apt/lists/*

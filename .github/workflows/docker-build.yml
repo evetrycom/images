@@ -3,6 +3,7 @@ name: Build and Push Images API
 on:
   push:
     branches: [ "main" ]
+    tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -46,9 +47,12 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            # Manual dispatch: tag with input + latest
+            # Git Semver (e.g. v1.0.0 -> 1.0.0)
+            type=semver,pattern={{version}}
+            # Manual dispatch: tag with input
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
-            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+            # Always tag as 'latest' for main branch, git tags, and manual dispatch
+            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
             # Full SHA for visibility
             type=sha,format=long
 

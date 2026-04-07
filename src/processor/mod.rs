@@ -78,7 +78,6 @@ pub async fn process_image(
     state: &Arc<AppState>,
     source: ImageSource,
     params: QueryParams,
-    accept_header: &str,
 ) -> Result<ProcessedResult> {
     // 1. Signature validation.
     if let Some(secret) = &state.secret {
@@ -111,9 +110,8 @@ pub async fn process_image(
     };
 
     // 3. Move CPU-bound libvips processing to a blocking thread pool.
-    let accept = accept_header.to_string();
     let result = tokio::task::spawn_blocking(move || {
-        process_sync(bytes, overlay_bytes, params, &accept)
+        process_sync(bytes, overlay_bytes, params)
     }).await.map_err(|e| anyhow!("Blocking task failed: {}", e))??;
 
     Ok(result)
@@ -124,7 +122,6 @@ fn process_sync(
     bytes: Bytes,
     overlay_bytes: Option<Bytes>,
     params: QueryParams,
-    accept: &str,
 ) -> Result<ProcessedResult> {
     // A. Loader options.
     let mut opts = Vec::new();
@@ -171,7 +168,7 @@ fn process_sync(
             .map_err(|e| anyhow!("Mask failed: {}", e))?;
     }
 
-    let fmt = encode::negotiate_format(params.output.as_deref(), accept, original_fmt);
+    let fmt = encode::negotiate_format(params.output.as_deref(), original_fmt);
     let quality = params.q.unwrap_or(80);
     let (buffer, mime) = encode::encode(&processed, fmt, quality)?;
 
