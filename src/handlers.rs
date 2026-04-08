@@ -59,16 +59,27 @@ async fn process_and_respond(
     
     match processor::process_image(&state, source, params).await {
         Ok(processor::ProcessedResult::Image(buffer, mime_type)) => {
-            (
-                StatusCode::OK,
-                [
-                    ("Content-Type", mime_type), 
-                    ("Cache-Control", "public, max-age=31536000, immutable".to_string()),
-                    ("ETag", format!("\"{}\"", etag)),
-                    ("Vary", "Origin".to_string()),
-                ],
-                buffer,
-            ).into_response()
+            let mut res_headers = HeaderMap::new();
+            res_headers.insert("Content-Type", mime_type.parse().unwrap());
+            
+            // 3. Set Cache-Control with configurable max-age
+            let max_age = std::env::var("CACHE_MAX_AGE").unwrap_or_else(|_| "31536000".to_string());
+            res_headers.insert("Cache-Control", format!("public, max-age={}, immutable", max_age).parse().unwrap());
+            
+            // 4. Set ETag
+            res_headers.insert("ETag", format!("\"{}\"", etag).parse().unwrap());
+            
+            // 5. Conditionally add Vary: Origin
+            let add_vary = match &state.allowed_origins {
+                Some(origins) if origins == "*" => false,
+                None => false,
+                _ => true,
+            };
+            if add_vary {
+                res_headers.insert("Vary", "Origin".parse().unwrap());
+            }
+
+            (StatusCode::OK, res_headers, buffer).into_response()
         }
         Ok(processor::ProcessedResult::Json(json_val)) => {
             (

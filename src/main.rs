@@ -20,6 +20,7 @@ pub struct AppState {
     pub bucket: String,
     pub allow_external: bool,
     pub secret: Option<String>,
+    pub allowed_origins: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -112,16 +113,18 @@ async fn main() {
 
     let s3_client = S3Client::new(&s3_config);
 
+    // 4. Setup CORS
+    let allowed_origins = std::env::var("ALLOWED_ORIGINS").ok();
+
     let state = Arc::new(AppState {
         s3_client,
         bucket,
         allow_external,
         secret: app_secret,
+        allowed_origins: allowed_origins.clone(),
     });
 
-    // 4. Setup CORS
-    let allowed_origins = std::env::var("ALLOWED_ORIGINS").ok();
-    let cors = if let Some(origins) = allowed_origins {
+    let cors = if let Some(origins) = &allowed_origins {
         if origins == "*" {
             CorsLayer::new().allow_origin(Any)
         } else {
