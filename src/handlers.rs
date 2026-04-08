@@ -50,10 +50,21 @@ pub async fn handle_s3_image(
 async fn process_and_respond(
     state: Arc<AppState>,
     source: processor::ImageSource,
-    params: QueryParams,
+    mut params: QueryParams,
     headers: HeaderMap,
 ) -> axum::response::Response {
-    // 1. Generate ETag based on source and parameters
+    // 1. Dynamic output format negotiation based on Accept header
+    if params.output.is_none() {
+        if let Some(accept) = headers.get(axum::http::header::ACCEPT).and_then(|v| v.to_str().ok()) {
+            if accept.contains("image/avif") {
+                params.output = Some("avif".to_string());
+            } else if accept.contains("image/webp") {
+                params.output = Some("webp".to_string());
+            }
+        }
+    }
+
+    // 2. Generate ETag based on source and parameters
     let etag = generate_etag(&source, &params);
 
     // 2. Check If-None-Match header for cache hits
@@ -80,15 +91,13 @@ async fn process_and_respond(
             // 4. Set ETag
             res_headers.insert("ETag", format!("\"{}\"", etag).parse().unwrap());
 
-            // 5. Conditionally add Vary: Origin
-            let add_vary = match &state.allowed_origins {
-                Some(origins) if origins == "*" => false,
-                None => false,
-                _ => true,
+            // 5. Build Vary header
+            let vary_value = match &state.allowed_origins {
+                Some(origins) if origins == "*" => "Accept",
+                None => "Accept",
+                _ => "Origin, Accept",
             };
-            if add_vary {
-                res_headers.insert("Vary", "Origin".parse().unwrap());
-            }
+            res_headers.insert("Vary", vary_value.parse().unwrap());
 
             (StatusCode::OK, res_headers, buffer).into_response()
         }
