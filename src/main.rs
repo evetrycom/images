@@ -125,7 +125,7 @@ async fn main() {
 
     let cors = if let Some(origins) = &allowed_origins {
         if origins == "*" {
-            CorsLayer::new().allow_origin(Any)
+            CorsLayer::new().allow_origin(Any).vary(vec![])
         } else {
             let list = origins
                 .split(',')
@@ -134,7 +134,7 @@ async fn main() {
             CorsLayer::new().allow_origin(list)
         }
     } else {
-        CorsLayer::new().allow_origin(Any)
+        CorsLayer::new().allow_origin(Any).vary(vec![])
     };
 
     let cors = cors.allow_methods(Any).allow_headers(Any);
