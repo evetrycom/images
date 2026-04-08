@@ -1,15 +1,15 @@
+use crate::{processor, AppState, QueryParams};
 use axum::{
     extract::{Path, Query, State},
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
-    http::{StatusCode, HeaderMap},
 };
-use std::sync::Arc;
-use crate::{AppState, QueryParams, processor};
-use sha2::{Sha256, Digest};
 use hex;
+use sha2::{Digest, Sha256};
+use std::sync::Arc;
 
 pub async fn health_check() -> &'static str {
-    "Evetry Images is running OK"
+    "OK"
 }
 
 // Handler for external images: /url/https://example.com/img.png?tr=...
@@ -24,9 +24,15 @@ pub async fn handle_external_image(
     }
 
     tracing::info!("Proxying external image: {}", remote_url);
-    
+
     // Process image
-    process_and_respond(state, processor::ImageSource::Url(remote_url), params, headers).await
+    process_and_respond(
+        state,
+        processor::ImageSource::Url(remote_url),
+        params,
+        headers,
+    )
+    .await
 }
 
 // Handler for S3 images: /assets/photo.jpg?tr=...
@@ -37,7 +43,7 @@ pub async fn handle_s3_image(
     headers: HeaderMap,
 ) -> axum::response::Response {
     tracing::info!("Fetching image from S3: {}", path);
-    
+
     process_and_respond(state, processor::ImageSource::S3(path), params, headers).await
 }
 
@@ -56,19 +62,24 @@ async fn process_and_respond(
             return StatusCode::NOT_MODIFIED.into_response();
         }
     }
-    
+
     match processor::process_image(&state, source, params).await {
         Ok(processor::ProcessedResult::Image(buffer, mime_type)) => {
             let mut res_headers = HeaderMap::new();
             res_headers.insert("Content-Type", mime_type.parse().unwrap());
-            
+
             // 3. Set Cache-Control with configurable max-age
             let max_age = std::env::var("CACHE_MAX_AGE").unwrap_or_else(|_| "31536000".to_string());
-            res_headers.insert("Cache-Control", format!("public, max-age={}, immutable", max_age).parse().unwrap());
-            
+            res_headers.insert(
+                "Cache-Control",
+                format!("public, max-age={}, immutable", max_age)
+                    .parse()
+                    .unwrap(),
+            );
+
             // 4. Set ETag
             res_headers.insert("ETag", format!("\"{}\"", etag).parse().unwrap());
-            
+
             // 5. Conditionally add Vary: Origin
             let add_vary = match &state.allowed_origins {
                 Some(origins) if origins == "*" => false,
@@ -81,13 +92,12 @@ async fn process_and_respond(
 
             (StatusCode::OK, res_headers, buffer).into_response()
         }
-        Ok(processor::ProcessedResult::Json(json_val)) => {
-            (
-                StatusCode::OK,
-                [("Content-Type", "application/json".to_string())],
-                serde_json::to_string_pretty(&json_val).unwrap(),
-            ).into_response()
-        }
+        Ok(processor::ProcessedResult::Json(json_val)) => (
+            StatusCode::OK,
+            [("Content-Type", "application/json".to_string())],
+            serde_json::to_string_pretty(&json_val).unwrap(),
+        )
+            .into_response(),
         Err(e) => {
             tracing::error!("Error processing image: {:?}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {}", e)).into_response()
@@ -97,19 +107,19 @@ async fn process_and_respond(
 
 fn generate_etag(source: &processor::ImageSource, params: &QueryParams) -> String {
     let mut hasher = Sha256::new();
-    
+
     // Hash the source identifier
     match source {
         processor::ImageSource::Url(url) => hasher.update(url.as_bytes()),
         processor::ImageSource::S3(key) => hasher.update(key.as_bytes()),
     }
-    
+
     // Hash the transformation parameters
     // We use debug print as a simple way to serialize for hashing
     hasher.update(format!("{:?}", params).as_bytes());
-    
+
     // Constant salt to allow force-purging global cache by changing this string
-    hasher.update(b"v1.0.0"); 
+    hasher.update(b"v1.0.0");
 
     hex::encode(hasher.finalize())
 }
